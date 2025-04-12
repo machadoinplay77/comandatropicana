@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Comandas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .campo { margin-bottom: 15px; }
+        input, button { width: 100%; padding: 10px; font-size: 16px; }
+        #scanned-barcodes { margin-top: 20px; display: flex; flex-wrap: wrap; }
+        .barcode-image { width: 100px; height: 100px; margin: 5px; border: 1px solid #ccc; }
+        @media print {
+            body * { visibility: hidden; }
+            .print-section, .print-section * { visibility: visible; }
+            .print-section { position: absolute; left: 0; top: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="campo">
+        <input type="number" id="comanda" placeholder="Número da Comanda" inputmode="numeric">
+    </div>
+
+    <div class="campo">
+        <button onclick="startScanner()">Escanear Código de Barras</button>
+    </div>
+
+    <div id="scanned-barcodes"></div>
+
+    <button onclick="printData()" class="print-section">Imprimir</button>
+
+    <script>
+        // Variável para armazenar as imagens escaneadas
+        let scannedImages = [];
+
+        function startScanner() {
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.body,
+                    constraints: {
+                        facingMode: "environment"
+                    }
+                },
+                decoder: {
+                    readers: ["code_128_reader", "ean_reader"]
+                }
+            }, function(err) {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function(result) {
+                const canvas = Quagga.canvas.dom.image;
+                const imageData = canvas.toDataURL();
+                
+                // Adiciona a imagem à lista e à tela
+                scannedImages.push(imageData);
+                document.getElementById('scanned-barcodes').innerHTML += 
+                    `<img src="${imageData}" class="barcode-image">`;
+                
+                // Para o scanner após detectar
+                Quagga.stop();
+            });
+        }
+
+        function printData() {
+            const printWindow = window.open('', '_blank');
+            const comanda = document.getElementById('comanda').value;
+            
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Impressão Comanda</title>
+                        <style>
+                            body { font-family: Arial; padding: 20px; }
+                            .barcode-print { width: 100px; height: 100px; margin: 10px; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Comanda: ${comanda}</h2>
+                        ${scannedImages.map(img => `<img src="${img}" class="barcode-print">`).join('')}
+                    </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Fecha teclado ao pressionar Enter
+        document.getElementById('comanda').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') this.blur();
+        });
+    </script>
+</body>
+</html>
